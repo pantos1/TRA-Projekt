@@ -1,10 +1,10 @@
 import numpy
 import cv2
 
-#TODO: Preprocessing of image - scaling to aspect ratio of 1:2 eg. 64x128
+# Własna implementacja
 
 # Read image
-img = cv2.imread('bolt.png')
+img = cv2.imread('bolt.jpg')
 img = numpy.float32(img) / 255.0
 
 # Calculate gradient
