@@ -40,9 +40,8 @@ def hog(img, bin_number = 9, cell_x = 8, cell_y = 8):
         mag = mag.flatten()
         ang = ang.flatten()
         # Jak policzyć moc każdego kąta?
-        # hist, bins = numpy.histogram(ang, bins=bin_number)
+        hist, bins = numpy.histogram(ang, bins=bin_number, weights=mag)
         histogram.append(hist)
-    print('a')
     # Wersja 2
     #  bin_range = 360 / bin_number
     # bins = (angle[...,0] % 360 / bin_range).astype(int).transpose()
