@@ -6,14 +6,15 @@ import json
 
 # Wlasna implementacja
 def hog(img, bin_number = 9, cell_x = 8, cell_y = 8):
-    hog_size = cell_x * cell_y * bin_number
-    histogram = numpy.zeros((hog_size,1))
+    histogram =[]
     # Calculate gradient
     gx = cv2.Sobel(img, cv2.CV_32F, 1, 0, ksize=1)
     gy = cv2.Sobel(img, cv2.CV_32F, 0, 1, ksize=1)
 
     # Calculate gradient magnitude and direction ( in degrees )
     magnitude, angle = cv2.cartToPolar(gx, gy, angleInDegrees=True)
+    magnitude = magnitude[...,0]
+    angle = angle[...,0]
     angle = abs(angle - 180)
     # plt.figure()
     # plt.subplot(143)
@@ -23,26 +24,37 @@ def hog(img, bin_number = 9, cell_x = 8, cell_y = 8):
     # plt.show()
 
     #Array of cells of size 8x8 pixels used to calculate histogram
-    bin_cells = []
+    angle_cells = []
     magnitude_cells = []
     #Picture size in pixels
     y_size = img.shape[0]
     x_size = img.shape[1]
     n_cell_x, n_cell_y = int(x_size/cell_x), int(y_size/cell_y)
-    # for i in range(0, n_cell_y):
-    #     for j in range(0, n_cell_x):
-    #         bin_cells.append(bin[i*cell_y : (i+1)*cell_y, j*cell_x : (j+1)*cell_x])
-    #         magnitude_cells.append(magnitude[i * cell_y: (i + 1) * cell_y, j * cell_x: (j + 1) * cell_x])
-    bin_range = 360 / bin_number
-    bins = (angle[...,0] % 360 / bin_range).astype(int).transpose()
-    x, y = numpy.mgrid[:x_size, :y_size]
-    x = x / n_cell_x
-    y = y / n_cell_y
-    labels = (x * cell_x + y) * bin_number + bins
-    index = numpy.arange(hog_size)
-    magnitude = magnitude[...,0].transpose()
-    histogram = scipy.ndimage.measurements.sum(magnitude, labels, index)
-    #
+    # Wersja 1
+    for i in range(0, n_cell_y):
+        for j in range(0, n_cell_x):
+           angle_cells.append(angle[i*cell_y : (i+1)*cell_y, j*cell_x : (j+1)*cell_x])
+           magnitude_cells.append(magnitude[i * cell_y: (i + 1) * cell_y, j * cell_x: (j + 1) * cell_x])
+
+    for mag, ang in zip(magnitude_cells, angle_cells):
+        mag = mag.flatten()
+        ang = ang.flatten()
+        # Jak policzyć moc każdego kąta?
+        # hist, bins = numpy.histogram(ang, bins=bin_number)
+        histogram.append(hist)
+    print('a')
+    # Wersja 2
+    #  bin_range = 360 / bin_number
+    # bins = (angle[...,0] % 360 / bin_range).astype(int).transpose()
+    # x, y = numpy.mgrid[:x_size, :y_size]
+    # x = x / n_cell_x
+    # y = y / n_cell_y
+    # labels = (x * cell_x + y) * bin_number + bins
+    # index = numpy.arange(hog_size)
+    # magnitude = magnitude[...,0].transpose()
+    # histogram = scipy.ndimage.measurements.sum(magnitude, labels, index)
+
+    # Wersja 3
     # #Simpler version
     # histograms = [numpy.bincount(b.ravel(), weights=m.ravel(), minlength=bin_number) for b, m in zip(bin_cells, magnitude_cells)]
     # histogram = numpy.hstack(histograms)
