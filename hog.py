@@ -1,11 +1,10 @@
 import numpy
-import scipy.ndimage
 import cv2
 import matplotlib.pyplot as plt
-import json
+from skimage import exposure
 
 # Wlasna implementacja
-def hog(img, bin_number = 9, cell_x = 8, cell_y = 8):
+def hog(img, bin_number = 9, cell = (8,8), norm_cell=(16,16)):
     histogram =[]
     # Calculate gradient
     gx = cv2.Sobel(img, cv2.CV_32F, 1, 0, ksize=1)
@@ -29,19 +28,34 @@ def hog(img, bin_number = 9, cell_x = 8, cell_y = 8):
     #Picture size in pixels
     y_size = img.shape[0]
     x_size = img.shape[1]
-    n_cell_x, n_cell_y = int(x_size/cell_x), int(y_size/cell_y)
+    n_cell_x, n_cell_y = int(x_size/cell[0]), int(y_size/cell[1])
     # Wersja 1
+    #Stworzenie komórek o podanych wymiarach z kątami i amplitudami
     for i in range(0, n_cell_y):
         for j in range(0, n_cell_x):
-           angle_cells.append(angle[i*cell_y : (i+1)*cell_y, j*cell_x : (j+1)*cell_x])
-           magnitude_cells.append(magnitude[i * cell_y: (i + 1) * cell_y, j * cell_x: (j + 1) * cell_x])
-
+           angle_cells.append(angle[i*cell[1] : (i+1)*cell[1], j*cell[0] : (j+1)*cell[0]])
+           magnitude_cells.append(magnitude[i * cell[1]: (i + 1) * cell[1], j * cell[0]: (j + 1) * cell[0]])
+    #Liczenie histogramu dla każdej komórki
     for mag, ang in zip(magnitude_cells, angle_cells):
         mag = mag.flatten()
         ang = ang.flatten()
-        # Jak policzyć moc każdego kąta?
         hist, bins = numpy.histogram(ang, bins=bin_number, weights=mag)
         histogram.append(hist)
+    #Zamiana na listę o wymiarach równych liczba komórek do histogramu razy liczba komórek do histogramu razy liczba binów
+    histogram = numpy.array(histogram, dtype=float).reshape(n_cell_y, n_cell_x, bin_number)
+    #Normalizacja
+    norm_cells =[]
+    n_norm_cell_x, n_norm_cell_y = int(x_size/norm_cell[0]), int(y_size/norm_cell[1])
+    for i in range (0, n_norm_cell_y):
+        for j in range(0, n_norm_cell_x):
+            block_to_norm = histogram[i*int(norm_cell[1]/cell[1]) : (i+1)*int(norm_cell[1]/cell[1]), j*int(norm_cell[0]/cell[0]) : (j+1)*int(norm_cell[0]/cell[0]), :].flatten()
+            norm_cells.append(block_to_norm)
+    # Eps użyty, żeby nie było dzielenia przez 0 przy normowaniu
+    eps = 1e-7
+    #List comprehension, żeby unormować po kolei wszystkie bloki
+    normalised_cells = [block+eps/numpy.linalg.norm(block) for block in norm_cells]
+    #Spłaszczenie listy  w jeden wektor
+    histogram = numpy.concatenate(normalised_cells).ravel().tolist()
     # Wersja 2
     #  bin_range = 360 / bin_number
     # bins = (angle[...,0] % 360 / bin_range).astype(int).transpose()
@@ -70,7 +84,7 @@ def hog(img, bin_number = 9, cell_x = 8, cell_y = 8):
 def main():
     # Read image
     img = cv2.imread('bolt.jpg')
-    img = numpy.float32(img) / 255.0
+    img = numpy.float32(img)
     histogram = hog(img)
     plt.figure()
     plt.imshow(histogram, cmap=plt.cm.Greys_r)
