@@ -36,6 +36,7 @@ def hog(img, bin_number = 9, cell = (8,8), norm_cell=(16,16)):
         for j in range(0, n_cell_x):
            angle_cells.append(angle[i*cell[1] : (i+1)*cell[1], j*cell[0] : (j+1)*cell[0]])
            magnitude_cells.append(magnitude[i * cell[1]: (i + 1) * cell[1], j * cell[0]: (j + 1) * cell[0]])
+    del magnitude, angle
 
     #Liczenie histogramu dla każdej komórki
     for mag, ang in zip(magnitude_cells, angle_cells):
@@ -43,6 +44,7 @@ def hog(img, bin_number = 9, cell = (8,8), norm_cell=(16,16)):
         ang = ang.flatten()
         hist, bins = numpy.histogram(ang, bins=bin_number, weights=mag)
         histogram.append(hist)
+    del magnitude_cells, angle_cells
 
     #Zamiana na listę o wymiarach równych liczba komórek do histogramu razy liczba komórek do histogramu razy liczba binów
     histogram = numpy.array(histogram, dtype=float).reshape(n_cell_y, n_cell_x, bin_number)
@@ -55,11 +57,13 @@ def hog(img, bin_number = 9, cell = (8,8), norm_cell=(16,16)):
             block_to_norm = histogram[i*int(norm_cell[1]/cell[1]) : (i+1)*int(norm_cell[1]/cell[1]), j*int(norm_cell[0]/cell[0]) : (j+1)*int(norm_cell[0]/cell[0]), :].flatten()
             norm_cells.append(block_to_norm)
     # Eps użyty, żeby nie było dzielenia przez 0 przy normowaniu
-    eps = 1e-7
+    eps = 1e-6
     #List comprehension, żeby unormować po kolei wszystkie bloki
-    normalised_cells = [block+eps/numpy.linalg.norm(block) for block in norm_cells]
+    normalised_cells = [block/numpy.linalg.norm(block+eps) for block in norm_cells]
+    del norm_cells
     #Spłaszczenie listy  w jeden wektor
     histogram = numpy.concatenate(normalised_cells).ravel().tolist()
+    del normalised_cells
     return histogram
 
     # Wersja 2
@@ -87,16 +91,17 @@ def hog(img, bin_number = 9, cell = (8,8), norm_cell=(16,16)):
     # histogram = numpy.sqrt(histogram/(histogram.sum()+eps))
 
 def predict(classifier, X):
-    classifier.predict(X)
+    return classifier.predict(X)
 
 def main():
     # Read image
     img = cv2.imread('bolt.jpg')
+    img = cv2.resize(img, (96,160))
     img = numpy.float32(img)
     histogram = hog(img)
-    plt.figure()
-    plt.imshow(histogram, cmap=plt.cm.Greys_r)
-    plt.show()
+    # classifier - ściągnąć z pliku
+    y = predict(classifier, histogram)
+    print(y)
 
 if __name__ == "__main__":
     main()
