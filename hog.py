@@ -1,7 +1,15 @@
 import numpy
 import cv2
+import os
 import matplotlib.pyplot as plt
 from sklearn.externals import joblib
+
+pos_path = 'C:/Users/Piotr/Documents/Studia/7. semestr/TRA/Projekt/Training_set/Test/pos'
+neg_path = 'C:/Users/Piotr/Documents/Studia/7. semestr/TRA/Projekt/Training_set/Test/neg'
+width = 96
+height = 160
+
+filename = 'svc.pkl'
 
 # Wlasna implementacja
 def hog(img, bin_number = 9, cell = (8,8), norm_cell=(16,16)):
@@ -57,7 +65,7 @@ def hog(img, bin_number = 9, cell = (8,8), norm_cell=(16,16)):
             block_to_norm = histogram[i*int(norm_cell[1]/cell[1]) : (i+1)*int(norm_cell[1]/cell[1]), j*int(norm_cell[0]/cell[0]) : (j+1)*int(norm_cell[0]/cell[0]), :].flatten()
             norm_cells.append(block_to_norm)
     # Eps użyty, żeby nie było dzielenia przez 0 przy normowaniu
-    eps = 1e-6
+    eps = 1e-7
     #List comprehension, żeby unormować po kolei wszystkie bloki
     normalised_cells = [block/numpy.linalg.norm(block+eps) for block in norm_cells]
     del norm_cells
@@ -93,15 +101,28 @@ def hog(img, bin_number = 9, cell = (8,8), norm_cell=(16,16)):
 def predict(classifier, X):
     return classifier.predict(X)
 
+def load_classifier(filename):
+    return joblib.load(filename)
+
 def main():
     # Read image
-    img = cv2.imread('bolt.jpg')
-    img = cv2.resize(img, (96,160))
-    img = numpy.float32(img)
-    histogram = hog(img)
-    # classifier - ściągnąć z pliku
-    y = predict(classifier, histogram)
-    print(y)
+    pos = [hog(numpy.float32(cv2.resize(cv2.imread(os.path.join(pos_path, image)), (width, height)))) for image in os.listdir(pos_path)]
+    neg = [hog(numpy.float32(cv2.resize(cv2.imread(os.path.join(neg_path, image)), (width, height)))) for image in os.listdir(neg_path)]
+    # img = cv2.imread('Natolin.jpg')
+    # img = cv2.resize(img, (width, height))
+    # img = numpy.float32(img)
+    # histogram = numpy.asarray(hog(img)).reshape(1, -1)
+    classifier = load_classifier(filename)
+    human = predict(classifier, numpy.asarray(pos))
+    no_human = predict(classifier, numpy.asarray(neg))
+    print("Human")
+    print(human)
+    mean1 = numpy.mean(human)
+    print(mean1)
+    print("No human")
+    print(no_human)
+    mean2 = numpy.mean(no_human)
+    print(mean2)
 
 if __name__ == "__main__":
     main()
