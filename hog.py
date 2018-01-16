@@ -2,6 +2,7 @@ import numpy
 import cv2
 import os
 import matplotlib.pyplot as plt
+from skimage import draw, exposure
 from sklearn.externals import joblib
 
 pos_path = 'C:/Users/Piotr/Documents/Studia/7. semestr/TRA/Projekt/Training_set/Test/pos'
@@ -12,7 +13,8 @@ height = 160
 filename = 'svc.pkl'
 
 # Wlasna implementacja
-def hog(img, bin_number = 9, cell = (8,8), norm_cell=(16,16)):
+def hog(img, bin_number = 9, cell = (8,8), norm_cell=(16,16), visualise=False):
+    img = img / 255.0
     histogram =[]
     # Calculate gradient
     gx = cv2.Sobel(img, cv2.CV_32F, 1, 0, ksize=1)
@@ -20,15 +22,9 @@ def hog(img, bin_number = 9, cell = (8,8), norm_cell=(16,16)):
 
     # Calculate gradient magnitude and direction ( in degrees )
     magnitude, angle = cv2.cartToPolar(gx, gy, angleInDegrees=True)
-    magnitude = magnitude[...,0]
-    angle = angle[...,0]
+    # magnitude = magnitude[...,0]
+    # angle = angle[...,0]
     angle = abs(angle - 180)
-    # plt.figure()
-    # plt.subplot(143)
-    # plt.imshow(magnitude, cmap=plt.cm.Greys_r)
-    # plt.subplot(144)
-    # plt.imshow(angle, cmap=plt.cm.Greys_r)
-    # plt.show()
 
     #Array of cells of size 8x8 pixels used to calculate histogram
     angle_cells = []
@@ -50,12 +46,35 @@ def hog(img, bin_number = 9, cell = (8,8), norm_cell=(16,16)):
     for mag, ang in zip(magnitude_cells, angle_cells):
         mag = mag.flatten()
         ang = ang.flatten()
-        hist, bins = numpy.histogram(ang, bins=bin_number, weights=mag)
+
+        weight = ((ang / 20) - numpy.floor(ang / 20)).astype(numpy.float32)
+        h1, b1 = numpy.histogram(20*numpy.floor(ang / 20).astype(numpy.int32), weights=mag * (1.0 - weight), bins=bin_number)
+        h2, b2 = numpy.histogram(20*numpy.ceil(ang / 20).astype(numpy.int32), weights=mag * weight, bins=bin_number)
+        hist = h1 + h2
         histogram.append(hist)
     del magnitude_cells, angle_cells
 
     #Zamiana na listę o wymiarach równych liczba komórek do histogramu razy liczba komórek do histogramu razy liczba binów
     histogram = numpy.array(histogram, dtype=float).reshape(n_cell_y, n_cell_x, bin_number)
+
+    hog_image = None
+    if visualise:
+        cx, cy = cell
+        sx, sy = x_size, y_size
+        radius = min(cx, cy) // 2 - 1
+        orientations_arr = numpy.arange(bin_number)
+        dx_arr = radius * numpy.cos(orientations_arr / bin_number * 180)
+        dy_arr = radius * numpy.sin(orientations_arr / bin_number * 180)
+        hog_image = numpy.zeros((sy, sx), dtype=float)
+        for x in range(n_cell_x):
+            for y in range(n_cell_y):
+                for o, dx, dy in zip(orientations_arr, dx_arr, dy_arr):
+                    centre = tuple([y * cy + cy // 2, x * cx + cx // 2])
+                    rr, cc = draw.line(int(centre[0] - dx),
+                                       int(centre[1] + dy),
+                                       int(centre[0] + dx),
+                                       int(centre[1] - dy))
+                    hog_image[rr, cc] += histogram[y, x, o]
 
     #Normalizacja
     norm_cells =[]
@@ -68,35 +87,14 @@ def hog(img, bin_number = 9, cell = (8,8), norm_cell=(16,16)):
     eps = 1e-7
     #List comprehension, żeby unormować po kolei wszystkie bloki
     normalised_cells = [block/numpy.linalg.norm(block+eps) for block in norm_cells]
-    del norm_cells
+
     #Spłaszczenie listy  w jeden wektor
     histogram = numpy.concatenate(normalised_cells).ravel().tolist()
-    del normalised_cells
-    return histogram
 
-    # Wersja 2
-    #  bin_range = 360 / bin_number
-    # bins = (angle[...,0] % 360 / bin_range).astype(int).transpose()
-    # x, y = numpy.mgrid[:x_size, :y_size]
-    # x = x / n_cell_x
-    # y = y / n_cell_y
-    # labels = (x * cell_x + y) * bin_number + bins
-    # index = numpy.arange(hog_size)
-    # magnitude = magnitude[...,0].transpose()
-    # histogram = scipy.ndimage.measurements.sum(magnitude, labels, index)
-
-    # Wersja 3
-    # #Simpler version
-    # histograms = [numpy.bincount(b.ravel(), weights=m.ravel(), minlength=bin_number) for b, m in zip(bin_cells, magnitude_cells)]
-    # histogram = numpy.hstack(histograms)
-    # #Nie działa!!!
-    # # hist_2d = numpy.array(histograms, dtype=float).reshape(n_cell_y, n_cell_x)
-    # plt.figure()
-    # # plt.imshow(hist_2d, cmap=plt.cm.Greys_r)
-    # plt.show()
-    # #Normalization
-    # eps = 1e-7
-    # histogram = numpy.sqrt(histogram/(histogram.sum()+eps))
+    if visualise:
+        return histogram, hog_image
+    else:
+        return histogram
 
 def predict(classifier, X):
     return classifier.predict(X)
@@ -105,24 +103,22 @@ def load_classifier(filename):
     return joblib.load(filename)
 
 def main():
-    # Read image
-    pos = [hog(numpy.float32(cv2.resize(cv2.imread(os.path.join(pos_path, image)), (width, height)))) for image in os.listdir(pos_path)]
-    neg = [hog(numpy.float32(cv2.resize(cv2.imread(os.path.join(neg_path, image)), (width, height)))) for image in os.listdir(neg_path)]
-    # img = cv2.imread('Natolin.jpg')
+    img = cv2.imread('Natolin.jpg', 0)
     # img = cv2.resize(img, (width, height))
-    # img = numpy.float32(img)
-    # histogram = numpy.asarray(hog(img)).reshape(1, -1)
-    classifier = load_classifier(filename)
-    human = predict(classifier, numpy.asarray(pos))
-    no_human = predict(classifier, numpy.asarray(neg))
-    print("Human")
-    print(human)
-    mean1 = numpy.mean(human)
-    print(mean1)
-    print("No human")
-    print(no_human)
-    mean2 = numpy.mean(no_human)
-    print(mean2)
+    img = numpy.float32(img)
+    histogram, image = numpy.asarray(hog(img, visualise = True))
+    hog_image = exposure.rescale_intensity(image, in_range=(0, 10))
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 4))
+
+    ax1.axis('off')
+    ax1.imshow(img, cmap=plt.cm.Greys_r)
+    ax1.set_title('Obraz')
+    ax1.set_adjustable('box-forced')
+    ax2.axis('off')
+    ax2.imshow(hog_image, cmap=plt.cm.Greys_r)
+    ax2.set_title('Histogram of Oriented Gradients')
+    ax1.set_adjustable('box-forced')
+    plt.show()
 
 if __name__ == "__main__":
     main()
