@@ -17,7 +17,14 @@ def main():
     x_test = pos + neg
     y_test = [1] * len(pos) + [0] * len(neg)
     accuracy = classifier.score(x_test, y_test)
-    print(accuracy)
+    print("Dokładność")
+    print(accuracy*100)
+    positive = classifier.predict(pos)
+    negative = classifier.predict(neg)
+    print("Czułość")
+    print(numpy.mean(positive)*100)
+    print("Swoistość")
+    print((1-numpy.mean(negative))*100)
 
 if __name__ == "__main__":
     main()

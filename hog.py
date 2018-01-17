@@ -12,29 +12,36 @@ height = 160
 
 filename = 'svc.pkl'
 
-# Wlasna implementacja
 def hog(img, bin_number = 9, cell = (8,8), norm_cell=(16,16), visualise=False):
+    """
+    :param img: Obraz z którego ma być policzony histogram
+    :param bin_number: Liczba orientacji(kątów) w histogramie
+    :param cell: Wielkość komórki (w pikselach)
+    :param norm_cell: Wielkość komórki normalizacyjnej (w pikselach)
+    :param visualise: Flaga stwierdzająca, czy ma być zwrócony również obraz do wizualizacji histogramu
+    :return: histogram - wektor zawierający obliczony histogram, hog_image - Histogram do wizualizacji
+    """
+
     img = img / 255.0
     histogram =[]
-    # Calculate gradient
+    # Obliczanie gradientu
     gx = cv2.Sobel(img, cv2.CV_32F, 1, 0, ksize=1)
     gy = cv2.Sobel(img, cv2.CV_32F, 0, 1, ksize=1)
 
-    # Calculate gradient magnitude and direction ( in degrees )
+    # Przeliczanie gradientu na biegunowy układ współrzędnych
     magnitude, angle = cv2.cartToPolar(gx, gy, angleInDegrees=True)
     # magnitude = magnitude[...,0]
     # angle = angle[...,0]
     angle = abs(angle - 180)
 
-    #Array of cells of size 8x8 pixels used to calculate histogram
+    #Tablica zawierająca piksele podzielone na komórki
     angle_cells = []
     magnitude_cells = []
-    #Picture size in pixels
+    #Wielkość obrazu w pikselach
     y_size = img.shape[0]
     x_size = img.shape[1]
     n_cell_x, n_cell_y = int(x_size/cell[0]), int(y_size/cell[1])
 
-    # Wersja 1
     #Stworzenie komórek o podanych wymiarach z kątami i amplitudami
     for i in range(0, n_cell_y):
         for j in range(0, n_cell_x):
@@ -103,7 +110,8 @@ def load_classifier(filename):
     return joblib.load(filename)
 
 def main():
-    img = cv2.imread('Natolin.jpg', 0)
+    image_name = input("Podaj nazwę pliku ze zdjęciem:")
+    img = cv2.imread(image_name, 0)
     # img = cv2.resize(img, (width, height))
     img = numpy.float32(img)
     histogram, image = numpy.asarray(hog(img, visualise = True))
