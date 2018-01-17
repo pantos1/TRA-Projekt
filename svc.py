@@ -13,7 +13,7 @@ height = 160
 width = 96
 
 def train_classifier(X, y):
-    classifier = svm.LinearSVC()
+    classifier = svm.SVC(C=1)
     classifier.fit(X, y)
     return classifier
 
@@ -30,7 +30,9 @@ def main():
 
     x = pos + neg
     y = [1] * len(pos) + [0] * len(neg)
-    svc = train_classifier(x, y)
+    data_frame = numpy.c_[x, y]
+    numpy.random.shuffle(data_frame)
+    svc = train_classifier(data_frame[:, :-1], data_frame[:, -1])
     save_classifier(svc, filename)
     print('a')
 
